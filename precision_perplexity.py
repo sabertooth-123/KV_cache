@@ -126,15 +126,37 @@ def evaluate_under_int8_cache_v2(full_sequence, prompt_len):
                 layer.keys = k_int8.to(layer.keys.dtype) * k_scale
                 layer.values = v_int8.to(layer.values.dtype) * v_scale
 
-    return logprobs, disagreements
+    return logprobs, disagreements, int8_store
+
+
+def measure_int8_scheme_bytes(int8_store):
+    """Real total bytes for the realistic per-token INT8 cache: int8 data PLUS the
+    per-token fp16 scale metadata. Previously only the theoretical 'INT8 = 1 byte vs
+    FP16's 2 bytes, so ~2x smaller' ratio was assumed -- this was never actually
+    checked against the real overhead of storing a scale alongside every token."""
+    int8_scheme_bytes = 0
+    fp16_equivalent_bytes = 0
+    for k_int8, k_scale, v_int8, v_scale in int8_store:
+        int8_scheme_bytes += k_int8.numel() * 1 + k_scale.numel() * 2  # int8 + fp16 scale
+        int8_scheme_bytes += v_int8.numel() * 1 + v_scale.numel() * 2
+        fp16_equivalent_bytes += k_int8.numel() * 2  # what K alone would cost stored as fp16
+        fp16_equivalent_bytes += v_int8.numel() * 2
+    return int8_scheme_bytes, fp16_equivalent_bytes
 
 
 full_sequence, fp16_logprobs = generate_fp16_reference(input_ids, NUM_NEW_TOKENS)
 prompt_len = input_ids.shape[1]
 int8_logprobs, disagreements = evaluate_under_int8_cache(full_sequence, prompt_len)
 
-int8_v2_logprobs, disagreements_v2 = evaluate_under_int8_cache_v2(full_sequence, prompt_len)
+int8_v2_logprobs, disagreements_v2, int8_store = evaluate_under_int8_cache_v2(full_sequence, prompt_len)
 int8_v2_ppl = math.exp(-sum(int8_v2_logprobs) / len(int8_v2_logprobs))
+
+int8_scheme_bytes, fp16_equivalent_bytes = measure_int8_scheme_bytes(int8_store)
+real_reduction = fp16_equivalent_bytes / int8_scheme_bytes
+print(f"\nREAL memory check (realistic per-token INT8 scheme, including scale metadata):")
+print(f"  FP16-equivalent cache size: {fp16_equivalent_bytes / 1024:.2f} KB")
+print(f"  Actual INT8 scheme size (int8 data + fp16 scales): {int8_scheme_bytes / 1024:.2f} KB")
+print(f"  Real reduction factor: {real_reduction:.2f}x  (naive theory assumes exactly 2.00x)")
 
 print(f"\nREALISTIC INT8 (per-token scale, quantize-once) perplexity: {int8_v2_ppl:.4f}")
 print(f"Argmax disagreements (v2), out of {NUM_NEW_TOKENS} steps: {disagreements_v2}")

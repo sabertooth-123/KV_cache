@@ -1,5 +1,5 @@
 import torch
-from attention import scaled_dot_product_attention
+from attention import scaled_dot_product_attention, scaled_dot_product_attention_gqa
 from kv_cache import KVCache
 
 torch.manual_seed(0)
@@ -93,7 +93,54 @@ def test_cache_matches_no_cache_longer_prompt():
     print("PASS: 6-token prompt, 8 new tokens")
 
 
+def test_kv_cache_supports_gqa_shape():
+    """Prove KVCache also works correctly for the real (batch, num_kv_heads, seq, d_k)
+    shape used by GQA/MQA, not just the toy single-head (batch, seq, d_k) shape above.
+    Previously KVCache hardcoded dim=1 for concatenation, which only happened to be
+    correct for the 3D toy shape -- the real GQA/MQA experiment (mha_gqa_mqa.py) never
+    actually routed through this class, so this generalization was never proven."""
+    torch.manual_seed(2)
+    BATCH, NUM_QUERY_HEADS, NUM_KV_HEADS, HEAD_DIM = 1, 4, 2, 8
+    PROMPT_LEN, NUM_NEW_TOKENS = 3, 4
+    TOTAL_LEN = PROMPT_LEN + NUM_NEW_TOKENS
+
+    all_k = torch.randn(BATCH, NUM_KV_HEADS, TOTAL_LEN, HEAD_DIM)
+    all_v = torch.randn(BATCH, NUM_KV_HEADS, TOTAL_LEN, HEAD_DIM)
+    all_q = torch.randn(BATCH, NUM_QUERY_HEADS, TOTAL_LEN, HEAD_DIM)
+
+    # no-cache: full recompute over the growing sequence, every step
+    no_cache_outputs = []
+    for t in range(PROMPT_LEN, TOTAL_LEN):
+        q = all_q[:, :, :t + 1, :]
+        k = all_k[:, :, :t + 1, :]
+        v = all_v[:, :, :t + 1, :]
+        out, _ = scaled_dot_product_attention_gqa(q, k, v, NUM_QUERY_HEADS, NUM_KV_HEADS, causal=True)
+        no_cache_outputs.append(out[:, :, -1, :])
+
+    # with-cache: prefill once, then feed one new token at a time through KVCache
+    cache = KVCache(num_layers=1)
+    k_all, v_all = cache.update(0, all_k[:, :, :PROMPT_LEN, :], all_v[:, :, :PROMPT_LEN, :])
+    q_prompt = all_q[:, :, :PROMPT_LEN, :]
+    scaled_dot_product_attention_gqa(q_prompt, k_all, v_all, NUM_QUERY_HEADS, NUM_KV_HEADS, causal=True)
+
+    with_cache_outputs = []
+    for t in range(PROMPT_LEN, TOTAL_LEN):
+        k_all, v_all = cache.update(0, all_k[:, :, t:t + 1, :], all_v[:, :, t:t + 1, :])
+        q_new = all_q[:, :, t:t + 1, :]
+        out, _ = scaled_dot_product_attention_gqa(q_new, k_all, v_all, NUM_QUERY_HEADS, NUM_KV_HEADS, causal=False)
+        with_cache_outputs.append(out[:, :, -1, :])
+
+    for step, (no_cache_out, with_cache_out) in enumerate(zip(no_cache_outputs, with_cache_outputs)):
+        assert torch.allclose(no_cache_out, with_cache_out, atol=1e-5, rtol=1e-4), (
+            f"GQA-shape cache mismatch at step {step}: "
+            f"max diff {(no_cache_out - with_cache_out).abs().max().item()}"
+        )
+    assert cache.seq_len(0) == TOTAL_LEN, f"expected seq_len {TOTAL_LEN}, got {cache.seq_len(0)}"
+    print("PASS: KVCache correctly handles (batch, num_kv_heads, seq, d_k) GQA shape")
+
+
 if __name__ == "__main__":
     test_cache_matches_no_cache_short_prompt()
     test_cache_matches_no_cache_longer_prompt()
+    test_kv_cache_supports_gqa_shape()
     print("\nAll Phase 4 correctness tests passed.")

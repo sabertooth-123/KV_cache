@@ -12,6 +12,7 @@ config = AutoConfig.from_pretrained(MODEL_NAME)
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16).to(DEVICE)
 model.eval()
+print(f"attn_implementation in use: {model.config._attn_implementation!r}")
 
 
 def random_prompt(seq_len: int) -> torch.Tensor:
