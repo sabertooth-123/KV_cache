@@ -1,52 +1,86 @@
 # KV Cache Lab
 
-A from-scratch implementation of attention and KV caching in PyTorch, plus a series of controlled systems experiments measuring how KV-cache design affects memory, latency, and model behavior  built and benchmarked entirely on a single RTX 4060 (8GB VRAM), no cloud GPUs.
+A from-scratch implementation of attention and KV caching using PyTorch.
 
-This isn't a new KV-cache algorithm or a research contribution. It's a from-scratch implementation, a set of controlled benchmarks, and one exploratory mechanistic-interpretability experiment  with the debugging dead-ends left in rather than edited out, because most of the actual learning happened there.
+This project explores how KV caching affects memory, speed, and model behavior. Everything was implemented and tested on a single RTX 4060 with 8GB VRAM.
+
+This is not a new KV cache algorithm. It is a learning project focused on implementation, experiments, debugging, and understanding how transformer inference works.
 
 **Blog:**(https://evergreen-learning-5e5.notion.site/What-I-learned-building-a-KV-cache-from-scratch-3e2cb2d4f8b480729e12f7518c03854f?pvs=74)
 
-## Key findings
+## What I Implemented
 
-- The KV-cache memory formula (`M = 2 × L × B × S × H_KV × D × bytes`) was validated to the exact byte against a real GPU allocation.
-- With-cache decoding is 2x-18x faster than no-cache as context grows from 512 to 2048 tokens; prefill time is nearly identical either way, since caching only ever helps decode.
-- Qwen2.5-0.5B's real config (14 query heads, 2 KV heads) implies a **7x KV-cache memory reduction** vs. a hypothetical full-MHA version of the same model , a direct calculation from the validated memory formula, not a benchmark measurement. A separate controlled synthetic experiment (16 query heads, sweeping KV heads down to 1, random weights not Qwen's real model or weights) measured only a **~16% latency improvement** across that range, confirming that fewer KV heads mainly saves memory bandwidth, not compute ,that latency figure describes the general architecture effect, not Qwen's specific 14-to-2 configuration.
--A naive INT8 KV-cache implementation cost 8.3% perplexity degradation on one 30-token greedy continuation from a fixed prompt , a small, prompt-specific measurement, not a general benchmark; fixing the quantization scheme (a separate scale per head and per sequence position, quantize-once instead of repeated re-quantization) roughly halved it to 4.35% on that same continuation.
-- Real measured INT8 memory reduction was **1.94x**, not the assumed 2.00x, once per-token scale metadata is accounted for.
-- Batch size scaling: memory grows exactly linearly (`958.3MB fixed + 160.2MB × batch`); throughput scales almost perfectly up to batch 4, then hits diminishing returns as the GPU shifts from memory-bandwidth-bound to compute-bound.
-- The honest max context length on this 8GB card is **~4096-6000 tokens** before hitting real memory pressure —not the ~8192-12288 that merely avoids an outright crash.
--A zero-ablation experiment — setting a cached position's K and V vectors to zero at every layer, not deleting the position or shortening the sequence — found a cached token position with unremarkable attention weight and K-vector norm whose zero-ablation produced, by a wide margin, the largest change in the final output distribution of any tested position; attention weight didn't predict it, only intervening did. (Scope: one model, one prompt, one generated continuation, one final prediction, one specific zero-ablation method — not a general claim about attention.
+1. Multi Head Attention (MHA)
+2. Grouped Query Attention (GQA)
+3. Multi Query Attention (MQA)
+4. Dynamic and static KV caches
+5. INT8 KV cache quantization
+6. Batch size and context length experiments
+7. KV cache memory calculations
+8. Causal zero ablation experiments
 
-## Repository structure
+## Key Findings
 
-| File | What it does |
-|---|---|
-| `attention.py` | Scaled dot-product attention from scratch, including GQA/MQA support |
-| `kv_cache.py` | From-scratch `KVCache` class |
-| `memory.py` | KV-cache memory calculator and max-context-under-budget tool |
-| `verify_memory.py` | Validates the memory formula against real GPU allocation |
-| `test_kv_cache.py` | Correctness tests: cache vs. no-cache equivalence, GQA shape support |
-| `cache_vs_no_cache.py` | Latency/memory benchmark across context lengths |
-| `context_scaling.py` | Memory scaling and real-ceiling-finding experiment |
-| `diagnose_4096.py` | Diagnostic script from the VRAM-pressure investigation |
-| `mha_gqa_mqa.py` | Controlled synthetic MHA/GQA/MQA memory and latency comparison (random tensors, 16 query heads swept over KV head counts — not the real Qwen model) |
-| `cache_precision.py` | FP32/FP16/BF16/INT8 synthetic precision benchmark |
-| `precision_perplexity.py` | Real-model INT8 quantization quality experiment |
-| `batch_scaling.py` | Batch size vs. memory/throughput experiment |
-| `static_cache_experiment.py` | Dynamic (`torch.cat`) vs. static (pre-allocated) cache comparison |
-| `mech_interp_kv.py` | Causal ablation / attention-weight / K-norm interpretability experiment |
-| `inspect_cache.py` | Utility for inspecting HF's `DynamicCache` internals |
-| `plot.py` | Generates the benchmark plots |
-| `*.png` | Generated benchmark plots |
+**1. Dynamic vs Static Cache**
+Dynamic caching becomes more expensive as the sequence grows because new tokens are continuously added to the cache.
+Static caching keeps a fixed memory layout and provides more consistent update times in my tests.
+However, static caching was not always faster. The result depends on the sequence length and implementation.
 
-## Running it
+**2. GQA and MQA**
+GQA and MQA reduce the number of key and value heads.
+For Qwen2.5 0.5B, the configuration has 14 query heads and 2 KV heads. This gives a theoretical 7× reduction in KV cache memory compared with an equivalent MHA configuration.
+A separate synthetic experiment showed around 16% latency improvement across the tested configurations.
+This experiment used random tensors, not Qwen's actual model weights.
+
+**3. INT8 Quantization**
+A basic INT8 quantization method caused 8.3% degradation on one 30-token continuation.
+After using per-position scaling and quantizing each token only once, the degradation decreased to 4.35%.
+These results come from one prompt and one short continuation. They are not a general perplexity benchmark.
+
+**4. Context Length and Memory**
+Longer contexts increase memory usage because the KV cache grows with sequence length.
+On my RTX 4060 with 8GB VRAM, memory pressure became noticeable around 4,096 to 6,000 tokens in the tested workload.
+The practical limit depends on the model, temporary activations, memory allocation, and attention implementation.
+
+**5. Batch Size Scaling**
+Memory usage increased approximately linearly with batch size.
+Throughput improved at smaller batch sizes but showed diminishing returns at larger batch sizes.
+The exact hardware bottleneck was not directly profiled.
+
+**6. Causal Zero Ablation**
+I tested the effect of setting the key and value vectors of a cached position to zero across layers.
+This experiment found a position whose zero-ablation caused a large change in the final output distribution, even though its attention weight and key vector norm were not unusual.
+This result was observed for one model, one prompt, and one specific ablation method. It is not a general claim about attention.
+
+## Running the Project
 
 ```bash
 python -m venv venv
 venv\Scripts\activate
+
 pip install torch --index-url https://download.pytorch.org/whl/cu124
 pip install transformers numpy matplotlib
+
 python test_kv_cache.py
 
-Requires a CUDA-enabled PyTorch build (not the CPU-only default from pip install torch) for any of the benchmark scripts
-test_kv_cache.py and the correctness tests will run on CPU fine.
+Requirements
+Python 3.10 or newer
+PyTorch
+Transformers
+NumPy
+Matplotlib
+
+CUDA-enabled PyTorch is required for GPU benchmarks.
+Correctness tests can also run on the CPU.
+
+What I Learned
+
+This project helped me understand:
+
+How attention works at the tensor level
+How KV caching reduces repeated computation
+How tensor dimensions affect cache correctness
+How quantization affects memory and output quality
+How GPU memory limits transformer inference
+Why benchmarking requires careful experiment design
+How debugging can change the interpretation of results
