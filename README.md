@@ -1,4 +1,4 @@
-# KV Cache Lab
+# KV Cache 
 
 A from-scratch implementation of attention and KV caching using PyTorch.
 
