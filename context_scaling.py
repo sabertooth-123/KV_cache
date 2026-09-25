@@ -43,7 +43,7 @@ def run_with_cache(input_ids, num_new_tokens):
 print(f"{'context':>8}  {'predicted cache-only':>20}  {'prefill logits':>16}  {'actual peak':>14}")
 for seq_len in CONTEXT_LENGTHS:
     try:
-        torch.cuda.empty_cache()  # avoid Phase 6's reserved-memory-buildup-across-shapes issue
+        torch.cuda.empty_cache()  # avoid reserved-memory buildup accumulating across shapes
         torch.cuda.reset_peak_memory_stats()
         prompt = random_prompt(seq_len)
         prefill_logits_shape = run_with_cache(prompt, NUM_NEW_TOKENS)

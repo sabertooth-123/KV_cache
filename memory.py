@@ -35,10 +35,10 @@ def format_bytes(num_bytes: int) -> str:
     return f"{num_bytes:,} bytes = {mb:.2f} MB = {gb:.4f} GB"
 
 def max_context_length(config: ModelConfig, batch_size: int, dtype: str, budget_bytes: int) -> int:
-    """Naive estimate: max S such that the PERSISTENT KV cache alone fits budget_bytes.
-    WARNING: ignores the transient O(S^2) prefill attention-score memory, which in
-    practice dominates real peak memory at long context (see Phase 10) -- this number
-    is an upper bound assuming caching were the only cost, not a real usable ceiling.
+    """Estimates the maximum context length based on persistent KV-cache storage alone.
+    It does not account for model weights, temporary activations, logits, allocator
+    behavior, or other transient memory requirements during prefill. The actual usable
+    context limit must be measured for the selected model and attention implementation.
     """
     bytes_per_element = BYTES_PER_DTYPE[dtype]
     per_token_bytes = 2 * config.num_layers * batch_size * config.num_kv_heads * config.head_dim * bytes_per_element

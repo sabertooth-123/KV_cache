@@ -1,6 +1,6 @@
 import time
 import torch
-from kv_cache import KVCache  # your Phase 3/7 dynamic (torch.cat-based) cache
+from kv_cache import KVCache  # the dynamic (torch.cat-based) cache from kv_cache.py
 
 BATCH = 1
 NUM_KV_HEADS = 2
@@ -13,8 +13,8 @@ DTYPE = torch.float16
 
 class StaticKVCache:
     """Same concept -- pre-allocated, in-place writes -- but one tensor per layer
-    (a list), not one big stacked tensor. Matches the pattern your own KVCache and
-    HF's DynamicCache both already use."""
+    (a list), not one big stacked tensor. Matches the pattern KVCache (kv_cache.py)
+    and HF's DynamicCache both use."""
 
     def __init__(self, num_layers, batch, num_kv_heads, max_seq_len, head_dim, dtype, device):
         self.k_cache = [

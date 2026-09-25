@@ -143,4 +143,4 @@ if __name__ == "__main__":
     test_cache_matches_no_cache_short_prompt()
     test_cache_matches_no_cache_longer_prompt()
     test_kv_cache_supports_gqa_shape()
-    print("\nAll Phase 4 correctness tests passed.")
+    print("\nAll correctness tests passed.")

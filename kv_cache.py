@@ -4,15 +4,15 @@ import torch
 class KVCache:
     """Holds per-layer K,V tensors and grows them as new tokens arrive.
 
-    Supports both the toy (batch, seq, d_k) shape (single implicit head,
-    Phases 2-4) and the real (batch, num_kv_heads, seq, d_k) shape used for
-    MHA/GQA/MQA (Phase 7+) -- sequence is always the second-to-last axis in
-    both conventions, so concatenating on dim=-2 works for either shape
-    without the caller needing to say which one they're using. Previously
-    this hardcoded dim=1, which only happened to be correct for the 3D case;
-    the real GQA/MQA experiments (mha_gqa_mqa.py) never actually went through
-    this class as a result, so it was never proven against the shape it was
-    conceptually supposed to also support.
+    Supports both the toy (batch, seq, d_k) shape (single implicit head)
+    and the real (batch, num_kv_heads, seq, d_k) shape used for MHA/GQA/MQA
+    -- sequence is always the second-to-last axis in both conventions, so
+    concatenating on dim=-2 works for either shape without the caller needing
+    to say which one they're using. This used to hardcode dim=1, which only
+    happened to be correct for the 3D case; the GQA/MQA experiments
+    (mha_gqa_mqa.py) never actually went through this class as a result, so
+    it was never proven against the shape it was conceptually supposed to
+    also support.
     """
 
     def __init__(self, num_layers: int):
