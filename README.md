@@ -4,7 +4,7 @@ A from-scratch implementation of attention and KV caching in PyTorch, plus a ser
 
 This isn't a new KV-cache algorithm or a research contribution. It's a from-scratch implementation, a set of controlled benchmarks, and one exploratory mechanistic-interpretability experiment with the debugging dead-ends left in rather than edited out, because most of the actual learning happened there.
 
-**[blog]** *(https://evergreen-learning-5e5.notion.site/What-I-learned-building-a-KV-cache-from-scratch-3e2cb2d4f8b480729e12f7518c03854f?pvs=74)*
+**blog:** *(https://evergreen-learning-5e5.notion.site/What-I-learned-building-a-KV-cache-from-scratch-3e2cb2d4f8b480729e12f7518c03854f?pvs=74)*
 
 ## Key findings
 
