@@ -1,10 +1,10 @@
 # KV Cache Lab
 
-A from-scratch implementation of attention and KV caching in PyTorch, plus a series of controlled systems experiments measuring how KV-cache design affects memory, latency, and model behavior — built and benchmarked entirely on a single RTX 4060 (8GB VRAM), no cloud GPUs.
+A from-scratch implementation of attention and KV caching in PyTorch, plus a series of controlled systems experiments measuring how KV-cache design affects memory, latency, and model behavior  built and benchmarked entirely on a single RTX 4060 (8GB VRAM), no cloud GPUs.
 
-This isn't a new KV-cache algorithm or a research contribution. It's a from-scratch implementation, a set of controlled benchmarks, and one exploratory mechanistic-interpretability experiment — with the debugging dead-ends left in rather than edited out, because most of the actual learning happened there.
+This isn't a new KV-cache algorithm or a research contribution. It's a from-scratch implementation, a set of controlled benchmarks, and one exploratory mechanistic-interpretability experiment with the debugging dead-ends left in rather than edited out, because most of the actual learning happened there.
 
-**[Full writeup] *(https://evergreen-learning-5e5.notion.site/What-I-learned-building-a-KV-cache-from-scratch-3e2cb2d4f8b480729e12f7518c03854f?pvs=74)*
+**[blog]** *(https://evergreen-learning-5e5.notion.site/What-I-learned-building-a-KV-cache-from-scratch-3e2cb2d4f8b480729e12f7518c03854f?pvs=74)*
 
 ## Key findings
 
