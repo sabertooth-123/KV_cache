@@ -77,10 +77,10 @@ Correctness tests can also run on the CPU.
 
 This project helped me understand:
 
-How attention works at the tensor level
-How KV caching reduces repeated computation
-How tensor dimensions affect cache correctness
-How quantization affects memory and output quality
-How GPU memory limits transformer inference
-Why benchmarking requires careful experiment design
+How attention works at the tensor level;
+How KV caching reduces repeated computation;
+How tensor dimensions affect cache correctness;
+How quantization affects memory and output quality;
+How GPU memory limits transformer inference;
+Why benchmarking requires careful experiment design;
 How debugging can change the interpretation of results
