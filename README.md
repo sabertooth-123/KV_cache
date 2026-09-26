@@ -39,7 +39,7 @@ These results come from one prompt and one short continuation. They are not a ge
 
 **4. Context Length and Memory**
 Longer contexts increase memory usage because the KV cache grows with sequence length.
-On my RTX 4060 with 8GB VRAM, memory pressure became noticeable around 4,096 to 6,000 tokens in the tested workload.
+On my device, memory pressure became noticeable around 4,096 to 6,000 tokens in the tested workload.
 The practical limit depends on the model, temporary activations, memory allocation, and attention implementation.
 
 **5. Batch Size Scaling**
