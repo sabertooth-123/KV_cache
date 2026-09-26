@@ -73,7 +73,7 @@ Matplotlib
 CUDA-enabled PyTorch is required for GPU benchmarks.
 Correctness tests can also run on the CPU.
 
-What I Learned
+
 
 This project helped me understand:
 
